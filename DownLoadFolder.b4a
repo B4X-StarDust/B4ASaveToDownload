@@ -1,0 +1,108 @@
+﻿Build1=Default,b4a.example
+File1=Layout.bal
+FileGroup1=Default Group
+Group=Default Group
+Library1=core
+Library2=javaobject
+Library3=okhttputils2
+Library4=xui
+ManifestCode='This code will be applied to the manifest file during compilation.~\n~'You do not need to modify it in most cases.~\n~'See this link for for more information: https://www.b4x.com/forum/showthread.php?p=78136~\n~AddManifestText(~\n~<uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34"/>~\n~<supports-screens android:largeScreens="true" ~\n~    android:normalScreens="true" ~\n~    android:smallScreens="true" ~\n~    android:anyDensity="true"/>)~\n~SetApplicationAttribute(android:icon, "@drawable/icon")~\n~SetApplicationAttribute(android:label, "$LABEL$")~\n~CreateResourceFromFile(Macro, Themes.LightTheme)~\n~'End of default text.~\n~CreateResourceFromFile(Macro, Core.NetworkClearText)
+Module1=Starter
+NumberOfFiles=1
+NumberOfLibraries=4
+NumberOfModules=1
+Version=13.1
+@EndOfDesignText@
+#Region  Project Attributes 
+	#ApplicationLabel: SaveToDownloadFolder
+	#VersionCode: 1
+	#VersionName: 1
+	'SupportedOrientations possible values: unspecified, landscape or portrait.
+	#SupportedOrientations: unspecified
+	#CanInstallToExternalStorage: False
+#End Region
+
+#BridgeLogger: True
+
+#Region  Activity Attributes 
+	#FullScreen: False
+	#IncludeTitle: True
+#End Region
+
+Sub Process_Globals
+	'These global variables will be declared once when the application starts.
+	'These variables can be accessed from all modules.
+	Private xui As XUI
+End Sub
+
+Sub Globals
+	'These global variables will be redeclared each time the activity is created.
+End Sub
+
+Sub Activity_Create(FirstTime As Boolean)
+	Activity.LoadLayout("Layout")
+End Sub
+
+Sub Activity_Resume
+
+End Sub
+
+Sub Activity_Pause (UserClosed As Boolean)
+
+End Sub
+
+Sub Button1_Click
+	DownloadAndSave
+	'xui.MsgboxAsync("Start Download", "B4X")
+End Sub
+
+Sub DownloadAndSave
+	Dim j As HttpJob
+	j.Initialize("", Me)
+	j.Download("http://www.s-dev.it/favicon.ico")
+	Wait For (j) JobDone(j As HttpJob)
+	If j.Success Then
+		Log("Download")
+		Dim Data() As Byte = Bit.InputStreamToBytes(j.GetInputStream)
+		SaveFileToDownloads(Data, "favicon.ico")
+	Else
+		LogColor(j.ErrorMessage,Colors.Magenta)
+		xui.MsgboxAsync(j.ErrorMessage , "Error")
+	End If
+	j.Release
+End Sub
+
+Sub SaveFileToDownloads(data() As Byte, FileName As String)
+	Dim ctxt As JavaObject
+	ctxt.InitializeContext
+
+	Dim ContentValues As JavaObject
+	ContentValues.InitializeNewInstance("android.content.ContentValues", Null)
+	'ContentValues.RunMethod("put", Array("display_name", FileName)) ' Imposta il nome corretto
+	ContentValues.RunMethod("put", Array("title", FileName)) ' Nome file
+	ContentValues.RunMethod("put", Array("mime_type", "application/json")) ' Tipo MIME
+	ContentValues.RunMethod("put", Array("relative_path", "Download/")) ' Cartella di destinazione
+
+	' Ottenere il MediaStore URI per i Download
+	Dim resolver As JavaObject = ctxt.RunMethod("getContentResolver", Null)
+	Dim uri As JavaObject = resolver.RunMethod("insert", Array(GetMediaStoreDownloadsUri, ContentValues))
+
+	If uri.IsInitialized Then
+		Dim os As OutputStream
+		os = resolver.RunMethod("openOutputStream", Array(uri))
+		os.WriteBytes(data, 0, data.Length)
+		os.Close
+		Log("✅ File salvato con successo in Download: " & FileName)
+		ToastMessageShow("File downloaded", False)
+	Else
+		Log("❌ Errore nel salvataggio del file")
+		ToastMessageShow("ERROR", False)
+	End If
+End Sub
+
+' Funzione per ottenere l'URI corretto di MediaStore.Downloads
+Sub GetMediaStoreDownloadsUri As Object
+	Dim jo As JavaObject
+	jo.InitializeStatic("android.provider.MediaStore$Downloads")
+	Return jo.GetField("EXTERNAL_CONTENT_URI")
+End Sub
